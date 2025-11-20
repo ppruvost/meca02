@@ -1,11 +1,13 @@
 // ============================================================
-// script.js — Version complète et finalisée + 3 graphiques
+// script.js — Version finale corrigée
+// - affiche l'abaque N = f(D) (option B)
+// - superpose les points (courant + ajoutés)
+// - conserve tous les autres modules (VC, fz, tableaux, graphiques)
 // ============================================================
 
-
-// ============================================================
-// PARAMÈTRES (PDF complet retranscrit)
-// ============================================================
+// -----------------------------
+// Paramètres (transcription fidèle du PDF)
+// -----------------------------
 const parametres = {
   "FORET HSS": {
     "ALUMINIUM": { Vc: [70], fz: [0.1, 0.25] },
@@ -119,29 +121,35 @@ const parametres = {
 };
 
 
-// ============================================================
-// OUTILS — FONCTIONS
-// ============================================================
+// -----------------------------
+// Utilitaires
+// -----------------------------
 function moyenne(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return NaN;
   return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
 function formatRange(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return "—";
   return arr.length === 1 ? `${arr[0]}` : `${arr[0]} - ${arr[1]}`;
 }
 
+// N = (Vc * 1000) / (π * D)
 function calcRPM(Vc, D) {
+  if (!D || !Vc) return NaN;
   return (Vc * 1000) / (Math.PI * D);
 }
 
+// Vf = N * fz * Z
 function calcVf(N, fz, Z) {
+  if (isNaN(N) || isNaN(fz) || isNaN(Z)) return NaN;
   return N * fz * Z;
 }
 
 
-// ============================================================
-// DOM ELEMENTS
-// ============================================================
+// -----------------------------
+// DOM elements
+// -----------------------------
 const outilSelect = document.getElementById("outil");
 const matiereSelect = document.getElementById("matiere");
 const diamInput = document.getElementById("diametre");
@@ -150,27 +158,41 @@ const vcRecoInput = document.getElementById("vcReco");
 const fzRecoInput = document.getElementById("fzReco");
 const rpmInput = document.getElementById("rpm");
 const vfInput = document.getElementById("vf");
+const updateBtn = document.getElementById("update");
+const addRowBtn = document.getElementById("addRow");
 
 const analyseVc = document.getElementById("analyseVc");
 const analyseD = document.getElementById("analyseD");
 const formuleExplication = document.getElementById("formuleExplication");
 
+// Devine la formule DOM
+const formuleInput = document.getElementById("formuleInput");
+const testerBtn = document.getElementById("testerFormule");
+const indiceBtn = document.getElementById("indiceBtn");
+const solutionBtn = document.getElementById("solutionBtn");
+const resultatFormule = document.getElementById("resultatFormule");
+const indiceTexte = document.getElementById("indiceTexte");
+const solutionTexte = document.getElementById("solutionTexte");
 
-// ============================================================
-// LISTES OUTILS + MATIÈRES
-// ============================================================
+
+// -----------------------------
+// Remplissage menus
+// -----------------------------
 function remplirOutils() {
-  Object.keys(parametres).forEach(o => {
+  outilSelect.innerHTML = "";
+  Object.keys(parametres).forEach(outil => {
     const opt = document.createElement("option");
-    opt.value = o;
-    opt.textContent = o;
+    opt.value = outil;
+    opt.textContent = outil;
     outilSelect.appendChild(opt);
   });
 }
 
 function remplirMatieres() {
   matiereSelect.innerHTML = "";
-  Object.keys(parametres[outilSelect.value]).forEach(m => {
+  const outil = outilSelect.value;
+  if (!parametres[outil]) return;
+  Object.keys(parametres[outil]).forEach(m => {
     const opt = document.createElement("option");
     opt.value = m;
     opt.textContent = m;
@@ -182,290 +204,397 @@ outilSelect.addEventListener("change", () => {
   remplirMatieres();
   rafraichir();
 });
-
 matiereSelect.addEventListener("change", rafraichir);
 diamInput.addEventListener("input", rafraichir);
 zInput.addEventListener("input", rafraichir);
+updateBtn.addEventListener("click", rafraichir);
 
 remplirOutils();
 remplirMatieres();
 
 
-// ============================================================
-// ANIMATION OUTIL
-// ============================================================
+// -----------------------------
+// Animation roue
+// -----------------------------
 const wheelCanvas = document.getElementById("wheelCanvas");
 const ctxWheel = wheelCanvas.getContext("2d");
 let angle = 0;
 let rotationSpeed = 0;
 
 function drawWheel() {
-  ctxWheel.clearRect(0, 0, 300, 300);
+  const W = wheelCanvas.width;
+  const H = wheelCanvas.height;
+  const R = Math.min(W, H) / 4;
+
+  ctxWheel.clearRect(0, 0, W, H);
   ctxWheel.save();
-  ctxWheel.translate(150, 150);
+  ctxWheel.translate(W / 2, H / 2);
   ctxWheel.rotate(angle);
 
   ctxWheel.beginPath();
-  ctxWheel.arc(0, 0, 80, 0, Math.PI * 2);
+  ctxWheel.arc(0, 0, R, 0, Math.PI * 2);
+  ctxWheel.lineWidth = 2;
+  ctxWheel.strokeStyle = "#333";
   ctxWheel.stroke();
 
   ctxWheel.beginPath();
   ctxWheel.moveTo(0, 0);
-  ctxWheel.lineTo(80, 0);
+  ctxWheel.lineTo(R, 0);
   ctxWheel.strokeStyle = "red";
+  ctxWheel.lineWidth = 2;
   ctxWheel.stroke();
 
   ctxWheel.restore();
-
   angle += rotationSpeed;
   requestAnimationFrame(drawWheel);
 }
-drawWheel();
+requestAnimationFrame(drawWheel);
 
 
-// ============================================================
-// ZONE PEDAGOGIQUE
-// ============================================================
+// -----------------------------
+// Zone pédagogique
+// -----------------------------
 function miseAJourPedagogie(VcRange, D, N) {
-  analyseVc.textContent =
-    "➤ Quand Vc augmente, N augmente.";
-  
-  analyseD.textContent =
-    "➤ Quand le diamètre augmente, la vitesse de rotation diminue pour conserver la même Vc.";
+  if (!VcRange || !D || isNaN(N)) {
+    analyseVc.textContent = "";
+    analyseD.textContent = "";
+    formuleExplication.textContent = "";
+    return;
+  }
 
-  formuleExplication.innerHTML = `
-    <strong>Formule fondamentale :</strong><br>
-    <code>N = (Vc × 1000) / (π × D)</code><br><br>
-    Avec vos valeurs :<br>
-    <code>N = (${formatRange(VcRange)} × 1000) / (π × ${D})</code><br>
-    ≈ <strong>${Math.round(N)} tr/min</strong>
-  `;
+  analyseVc.textContent = "➤ Quand la vitesse de coupe (Vc) augmente, la vitesse de rotation (N) augmente aussi.";
+  analyseD.textContent = "➤ Quand le diamètre (D) augmente, la vitesse de rotation (N) doit diminuer pour conserver la même Vc.";
+
+  formuleExplication.innerHTML =
+    `<strong>Formule :</strong><br>
+     <code>N = (Vc × 1000) / (π × D)</code><br><br>
+     Exemples :<br>
+     <code>N = (${formatRange(VcRange)} × 1000) / (π × ${D})</code><br>
+     ≈ <strong>${Math.round(N)} tr/min</strong>`;
 }
 
 
-// ============================================================
-// RAFRAICHISSEMENT PRINCIPAL
-// ============================================================
+// -----------------------------
+// Charts : 3 graphiques
+// -----------------------------
+const chartCanvas = document.getElementById("chartCanvas").getContext("2d");
+const chartNDCanvas = document.getElementById("chartND").getContext("2d");
+const chartNVcCanvas = document.getElementById("chartNVc").getContext("2d");
+
+// Chart 1 : Vc = f(D) (points + abaque possible) - keep basic
+const chart = new Chart(chartCanvas, {
+  type: "scatter",
+  data: {
+    datasets: [
+      {
+        label: "Points mesurés (simulation)",
+        data: [],
+        pointRadius: 5
+      }
+    ]
+  },
+  options: {
+    scales: {
+      x: { title: { display: true, text: "Diamètre (mm)" }, beginAtZero: true },
+      y: { title: { display: true, text: "Vc (m/min)" }, beginAtZero: true }
+    }
+  }
+});
+
+// Chart ND : N = f(D) — includes abaque curves + points
+const chartND = new Chart(chartNDCanvas, {
+  type: "scatter",
+  data: {
+    datasets: [
+      // Abaque min (if exists) - line
+      {
+        label: "Abaque N (Vc min)",
+        data: [],
+        showLine: true,
+        pointRadius: 0,
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+        tension: 0.1
+      },
+      // Abaque mean - solid line
+      {
+        label: "Abaque N (Vc moyen)",
+        data: [],
+        showLine: true,
+        pointRadius: 0,
+        borderWidth: 2,
+        tension: 0.1
+      },
+      // Abaque max (if exists) - line
+      {
+        label: "Abaque N (Vc max)",
+        data: [],
+        showLine: true,
+        pointRadius: 0,
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+        tension: 0.1
+      },
+      // Points ajoutés par l'utilisateur
+      {
+        label: "Points enregistrés",
+        data: [],
+        pointRadius: 5,
+        backgroundColor: "blue"
+      },
+      // Point courant (mis à jour via 'Mettre à jour')
+      {
+        label: "Point courant",
+        data: [],
+        pointRadius: 8,
+        backgroundColor: "red"
+      }
+    ]
+  },
+  options: {
+    scales: {
+      x: { title: { display: true, text: "Diamètre D (mm)" }, beginAtZero: true },
+      y: { title: { display: true, text: "N (tr/min)" }, beginAtZero: true }
+    }
+  }
+});
+
+// Chart NVc : N = f(Vc)
+const chartNVc = new Chart(chartNVcCanvas, {
+  type: "scatter",
+  data: {
+    datasets: [{
+      label: "N en fonction de Vc",
+      data: [],
+      pointRadius: 4
+    }]
+  },
+  options: {
+    scales: {
+      x: { title: { display: true, text: "Vc (m/min)" }, beginAtZero: true },
+      y: { title: { display: true, text: "N (tr/min)" }, beginAtZero: true }
+    }
+  }
+});
+
+
+// -----------------------------
+// Abaque generator for N = f(D)
+// - returns objects for min/mean/max (arrays of {x: D, y: N})
+// -----------------------------
+function genererAbaqueND() {
+  const outil = outilSelect.value;
+  const mat = matiereSelect.value;
+  if (!parametres[outil] || !parametres[outil][mat]) return { min: [], mean: [], max: [] };
+
+  const VcRange = parametres[outil][mat].Vc;
+  const Vc_min = VcRange.length === 1 ? VcRange[0] : VcRange[0];
+  const Vc_max = VcRange.length === 1 ? VcRange[0] : VcRange[1];
+  const Vc_mean = moyenne(VcRange);
+
+  const minPoints = [];
+  const meanPoints = [];
+  const maxPoints = [];
+
+  // Generate D from 1 mm to 200 mm (step 1 or 2 depending)
+  const step = 2;
+  for (let D = 1; D <= 200; D += step) {
+    const N_min = calcRPM(Vc_min, D);
+    const N_mean = calcRPM(Vc_mean, D);
+    const N_max = calcRPM(Vc_max, D);
+    minPoints.push({ x: D, y: N_min });
+    meanPoints.push({ x: D, y: N_mean });
+    maxPoints.push({ x: D, y: N_max });
+  }
+
+  return { min: minPoints, mean: meanPoints, max: maxPoints };
+}
+
+
+// -----------------------------
+// Rafraîchir affichage principal
+// - met à jour inputs, animation, abaque, point courant sur chartND
+// -----------------------------
 function rafraichir() {
   const outil = outilSelect.value;
   const mat = matiereSelect.value;
   const D = parseFloat(diamInput.value);
   const Z = parseFloat(zInput.value);
 
+  if (!parametres[outil] || !parametres[outil][mat]) return;
+
   const data = parametres[outil][mat];
-  const VcRange = data.Vc;
-  const fzRange = data.fz;
+  const VcRange = data.Vc || [];
+  const fzRange = data.fz || [];
 
+  // Affichages textuels
   vcRecoInput.value = formatRange(VcRange);
-  fzRecoInput.value = fzRange ? formatRange(fzRange) : "—";
+  fzRecoInput.value = fzRange.length ? formatRange(fzRange) : "—";
 
-  const Vc = moyenne(VcRange);
-  const fz = fzRange ? moyenne(fzRange) : NaN;
+  const Vc_mean = moyenne(VcRange);
+  const fz_mean = fzRange.length ? moyenne(fzRange) : NaN;
 
-  const N = calcRPM(Vc, D);
-  rpmInput.value = Math.round(N);
-
-  const Vf = calcVf(N, fz, Z);
+  // Calculs
+  const N = calcRPM(Vc_mean, D);
+  rpmInput.value = isNaN(N) ? "" : Math.round(N);
+  const Vf = calcVf(N, fz_mean, Z);
   vfInput.value = isNaN(Vf) ? "" : Vf.toFixed(1);
 
-  rotationSpeed = (N / 60) * 0.02;
+  // Animation speed
+  rotationSpeed = isNaN(N) ? 0 : (N / 60) * 0.02;
 
+  // Pedagogy
   miseAJourPedagogie(VcRange, D, N);
+
+  // Update abaque on chartND
+  const abaque = genererAbaqueND();
+  // Fill datasets 0..2 with abaque data
+  chartND.data.datasets[0].data = abaque.min;
+  chartND.data.datasets[1].data = abaque.mean;
+  chartND.data.datasets[2].data = abaque.max;
+
+  // Update the current point dataset (dataset index 4)
+  chartND.data.datasets[4].data = []; // reset
+  if (!isNaN(D) && !isNaN(N)) {
+    chartND.data.datasets[4].data.push({ x: D, y: N });
+  }
+
+  chartND.update();
+
+  // Also update chartNVc's current point if desired (not persistent)
+  // Here we do not clear the dataset, we add a temporary point in a separate dataset
+  // We'll not modify chartNVc datasets here (points are added on addRow)
 }
 
-rafraichir();
 
-
-// ============================================================
-// GRAPHIQUES
-// ============================================================
-
-// 1) Vc = f(D)
-const chart = new Chart(document.getElementById("chartCanvas"), {
-  type: "scatter",
-  data: { datasets: [{ label: "Vc (m/min) en fonction du diamètre", data: [], pointRadius: 5 }] },
-  options: {
-    scales: {
-      x: { title: { display: true, text: "Diamètre (mm)" } },
-      y: { title: { display: true, text: "Vc (m/min)" } }
-    }
-  }
-});
-
-// 2) N = f(D)
-const chartND = new Chart(document.getElementById("chartND"), {
-  type: "scatter",
-  data: { datasets: [{ label: "N en fonction de D", data: [], pointRadius: 4 }] },
-  options: {
-    scales: {
-      x: { title: { display: true, text: "Diamètre D (mm)" } },
-      y: { title: { display: true, text: "N (tr/min)" } }
-    }
-  }
-});
-
-// 3) N = f(Vc)
-const chartNVc = new Chart(document.getElementById("chartNVc"), {
-  type: "scatter",
-  data: { datasets: [{ label: "N en fonction de Vc", data: [], pointRadius: 4 }] },
-  options: {
-    scales: {
-      x: { title: { display: true, text: "Vc (m/min)" } },
-      y: { title: { display: true, text: "N (tr/min)" } }
-    }
-  }
-});
-
-
-// ============================================================
-// AJOUT LIGNE + GRAPHIQUES
-// ============================================================
-document.getElementById("addRow").addEventListener("click", () => {
+// -----------------------------
+// Ajouter ligne + mise à jour graphiques
+// -----------------------------
+addRowBtn.addEventListener("click", () => {
   const outil = outilSelect.value;
   const mat = matiereSelect.value;
   const D = parseFloat(diamInput.value);
   const Z = parseFloat(zInput.value);
 
+  if (!parametres[outil] || !parametres[outil][mat]) return;
+
   const data = parametres[outil][mat];
   const VcRange = data.Vc;
-  const fzRange = data.fz;
+  const fzRange = data.fz || [];
 
-  const Vc = moyenne(VcRange);
-  const fz = fzRange ? moyenne(fzRange) : NaN;
+  const Vc_num = moyenne(VcRange);
+  const fz_num = fzRange.length ? moyenne(fzRange) : NaN;
 
-  const N = calcRPM(Vc, D);
-  const Vf = calcVf(N, fz, Z);
+  const N = calcRPM(Vc_num, D);
+  const Vf = calcVf(N, fz_num, Z);
 
-  const row = document.createElement("tr");
-  row.innerHTML = `
+  // Append row to table
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
     <td>${outil}</td>
     <td>${mat}</td>
-    <td>${D}</td>
-    <td>${Z}</td>
+    <td>${Number.isFinite(D) ? D : ""}</td>
+    <td>${Number.isFinite(Z) ? Z : ""}</td>
     <td>${formatRange(VcRange)}</td>
-    <td>${fzRange ? formatRange(fzRange) : "—"}</td>
-    <td>${Math.round(N)}</td>
-    <td>${isNaN(Vf) ? "—" : Vf.toFixed(1)}</td>
+    <td>${fzRange.length ? formatRange(fzRange) : "—"}</td>
+    <td>${Number.isFinite(N) ? Math.round(N) : ""}</td>
+    <td>${Number.isFinite(Vf) ? Vf.toFixed(1) : ""}</td>
   `;
-  document.querySelector("#dataTable tbody").appendChild(row);
+  document.querySelector("#dataTable tbody").appendChild(tr);
 
-  // GRAPHIQUE 1 : Vc = f(D)
-  chart.data.datasets[0].data.push({ x: D, y: Vc });
+  // Update Chart 1 (Vc vs D) - use Vc_num as y
+  chart.data.datasets[0].data.push({ x: D, y: Vc_num });
   chart.update();
 
-  // GRAPHIQUE 2 : N = f(D)
-  chartND.data.datasets[0].data.push({ x: D, y: N });
+  // Update Chart ND: add to dataset index 3 (Points enregistrés)
+  chartND.data.datasets[3].data.push({ x: D, y: N });
   chartND.update();
 
-  // GRAPHIQUE 3 : N = f(Vc)
-  chartNVc.data.datasets[0].data.push({ x: Vc, y: N });
+  // Update Chart NVc: add (x=Vc_num, y=N)
+  chartNVc.data.datasets[0].data.push({ x: Vc_num, y: N });
   chartNVc.update();
 });
-// ============================================================
-// 🎮 MODE “DEVINE LA FORMULE”
-// ============================================================
 
-// Formule officielle à reconnaître :
-// N = (Vc * 1000) / (π * D)
 
-const formuleInput = document.getElementById("formuleInput");
-const testerBtn = document.getElementById("testerFormule");
-const indiceBtn = document.getElementById("indiceBtn");
-const solutionBtn = document.getElementById("solutionBtn");
-
-const resultatFormule = document.getElementById("resultatFormule");
-const indiceTexte = document.getElementById("indiceTexte");
-const solutionTexte = document.getElementById("solutionTexte");
-
+// -----------------------------
+// Devine la formule (mode interactif)
+// - simple test par substitution et comparaison numérique
+// -----------------------------
 let indiceStep = 0;
 
-// Normalisation de la formule entrée par l'élève
-function normaliser(texte) {
-  return texte
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/pi/g, Math.PI.toString())
-    .replace(/π/g, Math.PI.toString());
+function normaliserFormuleTexte(txt) {
+  return txt.toLowerCase().replace(/\s+/g, "");
 }
 
 testerBtn.addEventListener("click", () => {
-
   indiceTexte.textContent = "";
   solutionTexte.textContent = "";
 
   const D = parseFloat(diamInput.value);
   const outil = outilSelect.value;
   const mat = matiereSelect.value;
-
+  if (!parametres[outil] || !parametres[outil][mat]) {
+    resultatFormule.textContent = "Choisis d'abord un outil et une matière.";
+    resultatFormule.style.color = "red";
+    return;
+  }
   const Vc = moyenne(parametres[outil][mat].Vc);
+  const N_correct = calcRPM(Vc, D);
 
-  // Formule attendue
-  const N_correct = (Vc * 1000) / (Math.PI * D);
-
-  // On récupère la formule proposée
-  const entree = formuleInput.value;
-
-  if (entree.trim() === "") {
+  const entree = formuleInput.value.trim();
+  if (!entree) {
     resultatFormule.textContent = "⚠️ Propose d’abord une formule.";
     resultatFormule.style.color = "red";
     return;
   }
 
-  // On construit une fonction mathématique à partir du texte
+  // Attempt to evaluate the user's formula by replacing Vc and D with numbers
+  // Caution: use a safe eval approach — here a minimal approach using Function constructor
   try {
-    const formuleEval = entree
-      .replace(/Vc/g, Vc)
-      .replace(/D/g, D)
-      .replace(/N/g, "X")
-      .replace(/π/g, Math.PI)
-      .replace(/pi/gi, Math.PI);
+    // Replace common tokens (pi -> Math.PI)
+    let expr = entree.replace(/π/g, "Math.PI").replace(/pi/gi, "Math.PI");
+    // Replace Vc and D tokens with numeric values
+    expr = expr.replace(/Vc/g, `(${Vc})`).replace(/vc/g, `(${Vc})`);
+    expr = expr.replace(/D/g, `(${D})`).replace(/d/g, `(${D})`);
+    // Remove "N=" or similar if user included
+    expr = expr.replace(/^.*=*/, "");
+    // Evaluate
+    // eslint-disable-next-line no-new-func
+    const val = Function(`return (${expr});`)();
 
-    const tentative = eval(formuleEval);
+    if (isNaN(val)) throw new Error("NaN");
 
-    if (Math.abs(tentative - N_correct) < 1) {
+    if (Math.abs(val - N_correct) < Math.max(1, 0.01 * N_correct)) {
       resultatFormule.textContent = "✅ Bravo ! Ta formule est correcte.";
       resultatFormule.style.color = "green";
     } else {
-      resultatFormule.textContent = "❌ Incorrect. Réessaie !";
+      resultatFormule.textContent = `❌ Incorrect (ta valeur ≈ ${Math.round(val)}, attendu ≈ ${Math.round(N_correct)}).`;
       resultatFormule.style.color = "red";
     }
   } catch (e) {
-    resultatFormule.textContent = "⚠️ La formule est invalide. Vérifie la syntaxe.";
+    resultatFormule.textContent = "⚠️ Formule invalide. Vérifie la syntaxe.";
     resultatFormule.style.color = "red";
   }
 });
 
-// ----------- INDICES PROGRESSIFS ----------
 indiceBtn.addEventListener("click", () => {
   indiceStep++;
   solutionTexte.textContent = "";
-
-  if (indiceStep === 1) {
-    indiceTexte.textContent = "Indice 1 : N est directement proportionnel à Vc.";
-  }
-  else if (indiceStep === 2) {
-    indiceTexte.textContent = "Indice 2 : N diminue quand D augmente (inversement proportionnel).";
-  }
-  else if (indiceStep === 3) {
-    indiceTexte.textContent = "Indice 3 : Il y a un π dans la formule.";
-  }
-  else if (indiceStep === 4) {
-    indiceTexte.textContent = "Indice 4 : Vc est en m/min et D en mm — il faut convertir !";
-  }
-  else if (indiceStep >= 5) {
-    indiceTexte.textContent = "Dernier indice : La structure ressemble à : (quelque chose) / (π × D)";
-  }
+  if (indiceStep === 1) indiceTexte.textContent = "Indice 1 : N est proportionnel à Vc.";
+  else if (indiceStep === 2) indiceTexte.textContent = "Indice 2 : N varie inversement avec D (division).";
+  else if (indiceStep === 3) indiceTexte.textContent = "Indice 3 : Il faut convertir Vc (m/min) avec ×1000.";
+  else if (indiceStep >= 4) indiceTexte.textContent = "Dernier indice : structure générale N = (Vc * 1000) / (π * D)";
 });
 
-// ----------- SOLUTION ----------
 solutionBtn.addEventListener("click", () => {
   indiceTexte.textContent = "";
-  solutionTexte.innerHTML =
-    "🧠 <strong>Solution :</strong><br>" +
-    "<code>N = (Vc × 1000) / (π × D)</code>";
+  solutionTexte.innerHTML = "🧠 <strong>Solution :</strong><br><code>N = (Vc × 1000) / (π × D)</code>";
 });
 
 
-// ============================================================
-// FIN DU SCRIPT
-// ============================================================
+// -----------------------------
+// Initial refresh to populate charts/inputs
+// -----------------------------
+rafraichir();
+
+// End of script
