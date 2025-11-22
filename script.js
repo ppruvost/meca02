@@ -301,14 +301,14 @@ const chart = new Chart(chartCanvas, {
   }
 });
 
-// Chart ND : N = f(D) — includes abaque curves + points
+// Chart ND : n = f(D) — includes abaque curves + points
 const chartND = new Chart(chartNDCanvas, {
   type: "scatter",
   data: {
     datasets: [
       // Abaque min (if exists) - line
       {
-        label: "Abaque N (Vc min)",
+        label: "Abaque n (Vc min)",
         data: [],
         showLine: true,
         pointRadius: 0,
@@ -318,7 +318,7 @@ const chartND = new Chart(chartNDCanvas, {
       },
       // Abaque mean - solid line
       {
-        label: "Abaque N (Vc moyen)",
+        label: "Abaque n (Vc moyen)",
         data: [],
         showLine: true,
         pointRadius: 0,
@@ -327,7 +327,7 @@ const chartND = new Chart(chartNDCanvas, {
       },
       // Abaque max (if exists) - line
       {
-        label: "Abaque N (Vc max)",
+        label: "Abaque n (Vc max)",
         data: [],
         showLine: true,
         pointRadius: 0,
@@ -354,17 +354,17 @@ const chartND = new Chart(chartNDCanvas, {
   options: {
     scales: {
       x: { title: { display: true, text: "Diamètre D (mm)" }, beginAtZero: true },
-      y: { title: { display: true, text: "N (tr/min)" }, beginAtZero: true }
+      y: { title: { display: true, text: "n (tr/min)" }, beginAtZero: true }
     }
   }
 });
 
-// Chart NVc : N = f(Vc)
+// Chart NVc : n = f(Vc)
 const chartNVc = new Chart(chartNVcCanvas, {
   type: "scatter",
   data: {
     datasets: [{
-      label: "N en fonction de Vc",
+      label: "n en fonction de Vc",
       data: [],
       pointRadius: 4
     }]
@@ -372,14 +372,14 @@ const chartNVc = new Chart(chartNVcCanvas, {
   options: {
     scales: {
       x: { title: { display: true, text: "Vc (m/min)" }, beginAtZero: true },
-      y: { title: { display: true, text: "N (tr/min)" }, beginAtZero: true }
+      y: { title: { display: true, text: "n (tr/min)" }, beginAtZero: true }
     }
   }
 });
 
 
 // -----------------------------
-// Abaque generator for N = f(D)
+// Abaque generator for n = f(D)
 // - returns objects for min/mean/max (arrays of {x: D, y: N})
 // -----------------------------
 function genererAbaqueND() {
@@ -461,9 +461,6 @@ function rafraichir() {
 
   chartND.update();
 
-  // Also update chartNVc's current point if desired (not persistent)
-  // Here we do not clear the dataset, we add a temporary point in a separate dataset
-  // We'll not modify chartNVc datasets here (points are added on addRow)
 }
 
 
@@ -580,15 +577,15 @@ testerBtn.addEventListener("click", () => {
 indiceBtn.addEventListener("click", () => {
   indiceStep++;
   solutionTexte.textContent = "";
-  if (indiceStep === 1) indiceTexte.textContent = "Indice 1 : N est proportionnel à Vc.";
-  else if (indiceStep === 2) indiceTexte.textContent = "Indice 2 : N varie inversement avec D (division).";
+  if (indiceStep === 1) indiceTexte.textContent = "Indice 1 : n est proportionnel à Vc.";
+  else if (indiceStep === 2) indiceTexte.textContent = "Indice 2 : n varie inversement avec D (division).";
   else if (indiceStep === 3) indiceTexte.textContent = "Indice 3 : Il faut convertir Vc (m/min) avec ×1000.";
-  else if (indiceStep >= 4) indiceTexte.textContent = "Dernier indice : structure générale N = (Vc * 1000) / (π * D)";
+  else if (indiceStep >= 4) indiceTexte.textContent = "Dernier indice : structure générale n = (Vc * 1000) / (π * D)";
 });
 
 solutionBtn.addEventListener("click", () => {
   indiceTexte.textContent = "";
-  solutionTexte.innerHTML = "🧠 <strong>Solution :</strong><br><code>N = (Vc × 1000) / (π × D)</code>";
+  solutionTexte.innerHTML = "🧠 <strong>Solution :</strong><br><code>n = (Vc × 1000) / (π × D)</code>";
 });
 
 
