@@ -262,14 +262,14 @@ function miseAJourPedagogie(VcRange, D, N) {
     return;
   }
 
-  analyseVc.textContent = "➤ Quand la vitesse de coupe (Vc) augmente, la vitesse de rotation (N) augmente aussi.";
-  analyseD.textContent = "➤ Quand le diamètre (D) augmente, la vitesse de rotation (N) doit diminuer pour conserver la même Vc.";
+  analyseVc.textContent = "➤ Quand la vitesse de coupe (Vc) augmente, la vitesse de rotation (n) augmente aussi.";
+  analyseD.textContent = "➤ Quand le diamètre (D) augmente, la vitesse de rotation (n) doit diminuer pour conserver la même Vc.";
 
   formuleExplication.innerHTML =
     `<strong>Formule :</strong><br>
-     <code>N = (Vc × 1000) / (π × D)</code><br><br>
+     <code>n = (Vc × 1000) / (π × D)</code><br><br>
      Exemples :<br>
-     <code>N = (${formatRange(VcRange)} × 1000) / (π × ${D})</code><br>
+     <code>n = (${formatRange(VcRange)} × 1000) / (π × ${D})</code><br>
      ≈ <strong>${Math.round(N)} tr/min</strong>`;
 }
 
